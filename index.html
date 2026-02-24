@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>AI Red Team Quiz</title>
+  <meta name="theme-color" content="#111111"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <style>
+    :root {
+      --bg: #0f1115;
+      --card: #171a21;
+      --text: #e7eaf0;
+      --muted: #a9b1c3;
+      --border: #2a2f3a;
+      --good: #2ecc71;
+      --bad: #ff5a5f;
+      --accent: #6ea8fe;
+      --shadow: 0 10px 25px rgba(0,0,0,.35);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 20% 0%, #1b2340 0%, var(--bg) 55%);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 18px 14px 40px;
+    }
+    header {
+      display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap;
+      margin-bottom: 14px;
+    }
+    h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
+    .sub { color: var(--muted); font-size: 13px; }
+    .card {
+      background: rgba(23,26,33,.92);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .controls {
+      display:flex; gap:10px; flex-wrap:wrap;
+      margin-bottom: 12px;
+    }
+    select, button {
+      appearance:none;
+      border: 1px solid var(--border);
+      background: #12141a;
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+    button {
+      cursor: pointer;
+    }
+    button.primary {
+      border-color: rgba(110,168,254,.45);
+      background: linear-gradient(180deg, rgba(110,168,254,.25), rgba(110,168,254,.08));
+    }
+    button:disabled {
+      opacity: .5; cursor: not-allowed;
+    }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+    .meta { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .pill {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 12px;
+      background: rgba(0,0,0,.12);
+    }
+    .progress {
+      height: 10px;
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      overflow:hidden;
+      background: rgba(0,0,0,.18);
+      margin-top: 10px;
+    }
+    .bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(110,168,254,.9), rgba(46,204,113,.8));
+      transition: width .2s ease;
+    }
+    .qtext {
+      font-size: 16px;
+      line-height: 1.35;
+      margin: 12px 0 10px;
+    }
+    .answers {
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .opt {
+      text-align:left;
+      width: 100%;
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(18,20,26,.85);
+      border: 1px solid var(--border);
+      display:flex;
+      gap: 10px;
+      align-items:flex-start;
+    }
+    .opt .k {
+      min-width: 28px; height: 28px;
+      display:grid; place-items:center;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: rgba(0,0,0,.18);
+      font-weight: 600;
+    }
+    .opt.correct {
+      border-color: rgba(46,204,113,.6);
+      background: rgba(46,204,113,.12);
+    }
+    .opt.wrong {
+      border-color: rgba(255,90,95,.6);
+      background: rgba(255,90,95,.12);
+    }
+    .opt.reveal {
+      border-color: rgba(110,168,254,.5);
+      background: rgba(110,168,254,.10);
+    }
+    .feedback {
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.3;
+    }
+    .footer {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+      display:flex;
+      justify-content:space-between;
+      gap: 10px;
+      flex-wrap:wrap;
+    }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>AI Red Team Quiz</h1>
+        <div class="sub">Select a set • Quiz or Study mode • Works offline as a PWA</div>
+      </div>
+      <div class="sub" id="installHint"></div>
+    </header>
+
+    <div class="card">
+      <div class="controls">
+        <select id="setSelect" aria-label="Question set"></select>
+        <select id="modeSelect" aria-label="Mode">
+          <option value="quiz">Quiz (hide answer until you pick)</option>
+          <option value="study">Study (show correct when you pick)</option>
+        </select>
+        <select id="orderSelect" aria-label="Order">
+          <option value="inorder">In order</option>
+          <option value="shuffle">Shuffle</option>
+        </select>
+        <button class="primary" id="startBtn">Start</button>
+        <button id="resetBtn" title="Reset current run">Reset</button>
+      </div>
+
+      <div class="row">
+        <div class="meta">
+          <span class="pill" id="setPill">Set: —</span>
+          <span class="pill" id="qPill">Q: —</span>
+          <span class="pill" id="scorePill">Score: —</span>
+        </div>
+        <div class="meta">
+          <button id="prevBtn">◀︎ Prev</button>
+          <button id="nextBtn">Next ▶︎</button>
+        </div>
+      </div>
+
+      <div class="progress" aria-label="Progress">
+        <div class="bar" id="bar"></div>
+      </div>
+
+      <div class="qtext" id="qText">Choose a set and tap Start.</div>
+      <div class="answers" id="answers"></div>
+      <div class="feedback" id="feedback"></div>
+
+      <div class="footer">
+        <div>Tip: In Safari → Share → <b>Add to Home Screen</b> to install.</div>
+        <div id="offlineStatus">Offline-ready: checking…</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const ALL_QUESTIONS = [{"section": "Exam Practice", "id": "EXA-1", "question": "Which of the following attacks involves adding minor, intentional perturbations to input data to manipulate AI model predictions?", "options": [{"key": "A", "text": "Model extraction"}, {"key": "B", "text": "Adversarial attack"}, {"key": "C", "text": "Data poisoning"}, {"key": "D", "text": "Membership inference attack"}], "answer": "B"}, {"section": "Exam Practice", "id": "EXA-2", "question": "During a black-box attack on an AI system, which technique allows an attacker to approximate the decision boundaries of the target model without direct access?", "options": [{"key": "A", "text": "Zero-day vulnerability"}, {"key": "B", "text": "Query synthesis"}, {"key": "C", "text": "Model inversion"}, {"key": "D", "text": "Evasion attack"}], "answer": "B"}, {"section": "Exam Practice", "id": "EXA-3", "question": "In an AI-based intrusion detection system, which type of attack attempts to overwhelm the system by flooding it with random data to exhaust its resources?", "options": [{"key": "A", "text": "DDoS attack"}, {"key": "B", "text": "Evasion attack"}, {"key": "C", "text": "Model inversion attack"}, {"key": "D", "text": "Data poisoning attack"}], "answer": "A"}, {"section": "Exam Practice", "id": "EXA-4", "question": "Which method is commonly used to protect AI models from adversarial attacks by adding random noise to training data?", "options": [{"key": "A", "text": "Model compression"}, {"key": "B", "text": "Robust optimization"}, {"key": "C", "text": "Adversarial training"}, {"key": "D", "text": "Model pruning"}], "answer": "C"}, {"section": "Exam Practice", "id": "EXA-5", "question": "In membership inference attacks, what type of vulnerability does an attacker exploit to determine if specific data was used in training?", "options": [{"key": "A", "text": "Model transparency"}, {"key": "B", "text": "Overfitting"}, {"key": "C", "text": "Underfitting"}, {"key": "D", "text": "Data sparsity"}], "answer": "B"}, {"section": "Exam Practice", "id": "EXA-6", "question": "Which is a primary countermeasure against model inversion attacks that infer private information from model outputs?", "options": [{"key": "A", "text": "Data augmentation"}, {"key": "B", "text": "Differential privacy"}, {"key": "C", "text": "Hyperparameter tuning"}, {"key": "D", "text": "Gradient masking"}], "answer": "B"}, {"section": "Exam Practice", "id": "EXA-7", "question": "Which of the following is NOT a common technique for adversarial defense in machine learning models?", "options": [{"key": "A", "text": "Ensemble learning"}, {"key": "B", "text": "Model distillation"}, {"key": "C", "text": "Gradient masking"}, {"key": "D", "text": "Batch normalization"}], "answer": "D"}, {"section": "Exam Practice", "id": "EXA-8", "question": "In a poisoning attack, what is the typical objective of modifying the training data before model training?", "options": [{"key": "A", "text": "To reduce the model’s memory usage"}, {"key": "B", "text": "To force the model to predict specific outputs on certain inputs"}, {"key": "C", "text": "To improve model accuracy"}, {"key": "D", "text": "To enhance model robustness"}], "answer": "B"}, {"section": "Exam Practice", "id": "EXA-9", "question": "Which metric would be most useful for detecting the presence of adversarial examples in input data?", "options": [{"key": "A", "text": "Gradient norm"}, {"key": "B", "text": "F1 score"}, {"key": "C", "text": "Mean squared error"}, {"key": "D", "text": "Confusion matrix"}], "answer": "A"}, {"section": "Exam Practice", "id": "EXA-10", "question": "Which of the following attacks attempts to replicate a proprietary model's functionality using only black-box access?", "options": [{"key": "A", "text": "Model extraction attack"}, {"key": "B", "text": "Model inversion attack"}, {"key": "C", "text": "Adversarial perturbation"}, {"key": "D", "text": "Evasion attack"}], "answer": "A"}, {"section": "Exam Practice", "id": "EXA-11", "question": "Which type of attack involves training an AI model on maliciously altered data to change its behavior during deployment?", "options": [{"key": "A", "text": "Evasion"}, {"key": "B", "text": "Poisoning"}, {"key": "C", "text": "Model extraction"}, {"key": "D", "text": "Membership inference"}], "answer": "B"}, {"section": "Exam Practice", "id": "EXA-12", "question": "Which of the following defenses involves reducing the model's vulnerability to adversarial inputs by smoothing the decision boundaries?", "options": [{"key": "A", "text": "Model compression"}, {"key": "B", "text": "Randomization"}, {"key": "C", "text": "Gradient masking"}, {"key": "D", "text": "Label smoothing"}], "answer": "D"}, {"section": "Exam Practice", "id": "EXA-13", "question": "In the context of AI red teaming, which of these is a characteristic advantage of a white-box attack?", "options": [{"key": "A", "text": "Lower computational cost"}, {"key": "B", "text": "Reduced model complexity"}, {"key": "C", "text": "Knowledge of model parameters and architecture"}, {"key": "D", "text": "Lack of knowledge of model internals"}], "answer": "C"}, {"section": "Exam Practice", "id": "EXA-14", "question": "In an adversarial setting, what technique involves using surrogate models to simulate a black-box environment for attack planning?", "options": [{"key": "A", "text": "GAN-based attacks"}, {"key": "B", "text": "Model inversion"}, {"key": "C", "text": "Transfer learning"}, {"key": "D", "text": "Query synthesis"}], "answer": "C"}, {"section": "Exam Practice", "id": "EXA-15", "question": "Which of the following attack types is most likely to succeed if the target model is trained on imbalanced or sparse data?", "options": [{"key": "A", "text": "Membership inference"}, {"key": "B", "text": "Model inversion"}, {"key": "C", "text": "Poisoning attack"}, {"key": "D", "text": "Model extraction"}], "answer": "A"}, {"section": "Exam Practice", "id": "EXA-16", "question": "Which adversarial technique focuses on generating minimally altered data that bypasses the AI system’s detection but retains original class properties?", "options": [{"key": "A", "text": "Fast Gradient Sign Method (FGSM)"}, {"key": "B", "text": "Autoencoder-based obfuscation"}, {"key": "C", "text": "Generative Adversarial Network (GAN) attack"}, {"key": "D", "text": "Binary decision splitting"}], "answer": "A"}, {"section": "Exam Practice", "id": "EXA-17", "question": "Which of the following models is typically more robust to adversarial attacks due to the inherent noise-tolerant nature of its architecture?", "options": [{"key": "A", "text": "Decision Trees"}, {"key": "B", "text": "Convolutional Neural Networks"}, {"key": "C", "text": "Random Forests"}, {"key": "D", "text": "Recurrent Neural Networks"}], "answer": "C"}, {"section": "Exam Practice", "id": "EXA-18", "question": "Which metric is most useful for evaluating the effectiveness of an adversarial defense mechanism?", "options": [{"key": "A", "text": "Receiver Operating Characteristic (ROC) curve"}, {"key": "B", "text": "Adversarial accuracy"}, {"key": "C", "text": "Precision-Recall AUC"}, {"key": "D", "text": "F1 score"}], "answer": "B"}, {"section": "Exam Practice", "id": "EXA-19", "question": "What method is used in red team exercises to simulate realistic adversarial attacks in order to assess the resilience of AI systems?", "options": [{"key": "A", "text": "Transfer learning"}, {"key": "B", "text": "Attack chaining"}, {"key": "C", "text": "Adversarial benchmarking"}, {"key": "D", "text": "Synthetic data augmentation"}], "answer": "C"}, {"section": "Exam Practice", "id": "EXA-20", "question": "Which of the following is a primary limitation of gradient masking as a defense mechanism in adversarial machine learning?", "options": [{"key": "A", "text": "It can reduce model interpretability."}, {"key": "B", "text": "It is computationally expensive."}, {"key": "C", "text": "It often leads to a false sense of security and can be bypassed."}, {"key": "D", "text": "It makes the model highly sensitive to noise."}], "answer": "C"}, {"section": "Black-Box Set", "id": "BLA-1", "question": "In a black-box setting, which of the following techniques can be used to approximate the decision boundary of an AI model without direct access to its internal parameters?", "options": [{"key": "A", "text": "Model inversion"}, {"key": "B", "text": "Model extraction"}, {"key": "C", "text": "Adversarial training"}, {"key": "D", "text": "Transfer learning"}], "answer": "B"}, {"section": "Black-Box Set", "id": "BLA-2", "question": "Which type of query-based attack involves feeding inputs to the AI model to observe output probabilities, allowing attackers to understand model behavior without knowing its architecture?", "options": [{"key": "A", "text": "Evasion attack"}, {"key": "B", "text": "Membership inference"}, {"key": "C", "text": "Model extraction"}, {"key": "D", "text": "Model poisoning"}], "answer": "C"}, {"section": "Black-Box Set", "id": "BLA-3", "question": "In a black-box attack, which method allows attackers to produce adversarial examples by iteratively querying the model and making minimal adjustments to the input?", "options": [{"key": "A", "text": "Fast Gradient Sign Method (FGSM)"}, {"key": "B", "text": "Genetic algorithms"}, {"key": "C", "text": "Query-based score optimization"}, {"key": "D", "text": "Transfer-based attack"}], "answer": "C"}, {"section": "Black-Box Set", "id": "BLA-4", "question": "During a black-box attack on a deep learning model, what technique can an attacker use to infer training data from the model outputs?", "options": [{"key": "A", "text": "Gradient masking"}, {"key": "B", "text": "Model inversion"}, {"key": "C", "text": "Adversarial retraining"}, {"key": "D", "text": "Zero-shot learning"}], "answer": "B"}, {"section": "Black-Box Set", "id": "BLA-5", "question": "Which of the following strategies could an attacker use to replicate the output behavior of a black-box AI model using only its output predictions for given inputs?", "options": [{"key": "A", "text": "Model transfer"}, {"key": "B", "text": "Model distillation"}, {"key": "C", "text": "Synthetic dataset generation"}, {"key": "D", "text": "Label smoothing"}], "answer": "B"}, {"section": "Black-Box Set", "id": "BLA-6", "question": "In a black-box testing scenario, how can attackers leverage a shadow model to perform a membership inference attack on the target model?", "options": [{"key": "A", "text": "By using data generated from the target model to train a similar model"}, {"key": "B", "text": "By creating adversarial examples using white-box access"}, {"key": "C", "text": "By deploying an evasion attack on random inputs"}, {"key": "D", "text": "By querying the target model with random noise"}], "answer": "A"}, {"section": "Black-Box Set", "id": "BLA-7", "question": "Which of the following methods would an attacker use to infer confidential information about training data in a black-box scenario?", "options": [{"key": "A", "text": "Gradient descent"}, {"key": "B", "text": "Differential privacy"}, {"key": "C", "text": "Model inversion attack"}, {"key": "D", "text": "Batch normalization"}], "answer": "C"}, {"section": "Black-Box Set", "id": "BLA-8", "question": "In black-box penetration testing, which attack technique focuses on maximizing the model’s misclassification by generating adversarial inputs without knowing the model’s gradients?", "options": [{"key": "A", "text": "Boundary attack"}, {"key": "B", "text": "Data poisoning"}, {"key": "C", "text": "Model watermarking"}, {"key": "D", "text": "GAN-based attack"}], "answer": "A"}, {"section": "Black-Box Set", "id": "BLA-9", "question": "Which of the following best describes a transfer-based black-box attack on an AI model?", "options": [{"key": "A", "text": "Transferring weights from a similar white-box model to bypass defenses"}, {"key": "B", "text": "Using adversarial examples created on a similar model to attack the black-box model"}, {"key": "C", "text": "Extracting the target model’s architecture by observing outputs"}, {"key": "D", "text": "Overloading the model with random noise to degrade accuracy"}], "answer": "B"}, {"section": "Black-Box Set", "id": "BLA-10", "question": "What is the main challenge in generating adversarial examples for black-box attacks on AI models, compared to white-box attacks?", "options": [{"key": "A", "text": "Limited access to model weights and gradients"}, {"key": "B", "text": "Lack of data for training surrogate models"}, {"key": "C", "text": "Inability to modify the AI model’s architecture"}, {"key": "D", "text": "Difficulty in identifying model decision boundaries"}], "answer": "A"}, {"section": "White-Box Set", "id": "WHI-1", "question": "In white-box penetration testing, which of the following is an advantage for the attacker?", "options": [{"key": "A", "text": "Access to model weights and architecture"}, {"key": "B", "text": "Reduced risk of detection"}, {"key": "C", "text": "Ability to bypass training data validation"}, {"key": "D", "text": "Limited query access to the model"}], "answer": "A"}, {"section": "White-Box Set", "id": "WHI-2", "question": "Which attack method leverages gradient information from a white-box model to generate adversarial examples?", "options": [{"key": "A", "text": "Transfer-based attack"}, {"key": "B", "text": "Fast Gradient Sign Method (FGSM)"}, {"key": "C", "text": "Boundary attack"}, {"key": "D", "text": "Black-box model inversion"}], "answer": "B"}, {"section": "White-Box Set", "id": "WHI-3", "question": "In a white-box setting, which technique involves modifying the gradient during training to reduce the impact of adversarial inputs?", "options": [{"key": "A", "text": "Gradient masking"}, {"key": "B", "text": "Transfer learning"}, {"key": "C", "text": "Model distillation"}, {"key": "D", "text": "Differential privacy"}], "answer": "A"}, {"section": "White-Box Set", "id": "WHI-4", "question": "Which of the following attacks exploits full access to a white-box model to infer sensitive attributes of the training data?", "options": [{"key": "A", "text": "Label smoothing"}, {"key": "B", "text": "Model inversion attack"}, {"key": "C", "text": "Boundary attack"}, {"key": "D", "text": "Model compression"}], "answer": "B"}, {"section": "White-Box Set", "id": "WHI-5", "question": "In white-box adversarial attacks, which algorithm is often used to optimize perturbations by applying small, iterative changes to the input?", "options": [{"key": "A", "text": "Basic Iterative Method (BIM)"}, {"key": "B", "text": "Generative Adversarial Networks (GANs)"}, {"key": "C", "text": "Label flipping"}, {"key": "D", "text": "Noise injection"}], "answer": "A"}, {"section": "White-Box Set", "id": "WHI-6", "question": "During a white-box penetration test, which technique would allow an attacker to evade detection by the AI model while minimizing perturbation in the input?", "options": [{"key": "A", "text": "Random noise generation"}, {"key": "B", "text": "Projected Gradient Descent (PGD)"}, {"key": "C", "text": "Model extraction"}, {"key": "D", "text": "Query synthesis"}], "answer": "B"}, {"section": "White-Box Set", "id": "WHI-7", "question": "In a white-box attack, which method involves modifying specific model layers or neurons to manipulate the model’s decision-making process?", "options": [{"key": "A", "text": "Model pruning"}, {"key": "B", "text": "Adversarial retraining"}, {"key": "C", "text": "Backdooring"}, {"key": "D", "text": "Model distillation"}], "answer": "C"}, {"section": "White-Box Set", "id": "WHI-8", "question": "Which white-box attack technique is designed to fool the model by directly altering its activation functions and gradients?", "options": [{"key": "A", "text": "Boundary attack"}, {"key": "B", "text": "Neural network trojaning"}, {"key": "C", "text": "Gradient-based evasion"}, {"key": "D", "text": "Model compression"}], "answer": "B"}, {"section": "White-Box Set", "id": "WHI-9", "question": "In white-box AI penetration testing, what is the primary advantage of using the Carlini & Wagner (C&W) attack?", "options": [{"key": "A", "text": "It produces highly visible adversarial examples"}, {"key": "B", "text": "It ensures a minimal perturbation required to deceive the model"}, {"key": "C", "text": "It only requires black-box access"}, {"key": "D", "text": "It can directly alter the model’s weights without detection"}], "answer": "B"}, {"section": "White-Box Set", "id": "WHI-10", "question": "In a white-box scenario, which defense mechanism can make gradient-based adversarial attacks more difficult by modifying the model’s training process?", "options": [{"key": "A", "text": "Differential privacy"}, {"key": "B", "text": "Adversarial training"}, {"key": "C", "text": "Model extraction"}, {"key": "D", "text": "Transfer learning"}], "answer": "B"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-1", "question": "Which AI security testing framework provides a standardized methodology to identify, evaluate, and mitigate vulnerabilities in AI systems?", "options": [{"key": "A", "text": "OWASP Top 10"}, {"key": "B", "text": "MITRE ATLAS"}, {"key": "C", "text": "CVSS"}, {"key": "D", "text": "ISO 27001"}], "answer": "B"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-2", "question": "What is the primary purpose of using toolboxes such as IBM’s Adversarial Robustness Toolbox (ART) in AI security testing?", "options": [{"key": "A", "text": "To design new machine learning algorithms"}, {"key": "B", "text": "To identify and defend against adversarial attacks"}, {"key": "C", "text": "To improve model performance on specific tasks"}, {"key": "D", "text": "To simplify the model deployment process"}], "answer": "B"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-3", "question": "Which of the following methodologies is commonly used for risk assessment in AI and machine learning systems?", "options": [{"key": "A", "text": "CVE Scoring"}, {"key": "B", "text": "Threat Modeling"}, {"key": "C", "text": "K-means clustering"}, {"key": "D", "text": "A/B testing"}], "answer": "B"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-4", "question": "In AI penetration testing, which tool can be used to generate and test adversarial examples against deep learning models?", "options": [{"key": "A", "text": "Scikit-learn"}, {"key": "B", "text": "Fast Gradient Sign Method (FGSM)"}, {"key": "C", "text": "TensorFlow"}, {"key": "D", "text": "Adversarial Robustness Toolbox (ART)"}], "answer": "D"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-5", "question": "Which methodology involves creating detailed scenarios to evaluate how AI models perform under adversarial conditions?", "options": [{"key": "A", "text": "Data labeling"}, {"key": "B", "text": "Functional testing"}, {"key": "C", "text": "Test case generation"}, {"key": "D", "text": "Fuzz testing"}], "answer": "C"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-6", "question": "The Adversarial Robustness Toolbox (ART) is best suited for which of the following?", "options": [{"key": "A", "text": "Building neural network models"}, {"key": "B", "text": "Creating synthetic datasets"}, {"key": "C", "text": "Attacking and defending AI models"}, {"key": "D", "text": "Scaling machine learning infrastructure"}], "answer": "C"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-7", "question": "In AI model robustness testing, which technique involves exposing the model to unexpected or malformed inputs to check its stability?", "options": [{"key": "A", "text": "Differential testing"}, {"key": "B", "text": "Fuzz testing"}, {"key": "C", "text": "Model distillation"}, {"key": "D", "text": "Hyperparameter tuning"}], "answer": "B"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-8", "question": "In red team testing, which test case evaluates the AI system’s response to manipulated data that resembles authentic inputs but contains subtle modifications?", "options": [{"key": "A", "text": "Data poisoning test"}, {"key": "B", "text": "Membership inference test"}, {"key": "C", "text": "Adversarial example test"}, {"key": "D", "text": "Model extraction test"}], "answer": "C"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-9", "question": "Which framework provides a taxonomy of adversarial attack types and a structured approach for testing AI models against them?", "options": [{"key": "A", "text": "NIST AI RMF"}, {"key": "B", "text": "OWASP Machine Learning Security Project"}, {"key": "C", "text": "MITRE ATLAS"}, {"key": "D", "text": "Fairness, Accountability, and Transparency in Machine Learning (FAT-ML)"}], "answer": "C"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-10", "question": "In AI testing, what is the purpose of shadow models in red team methodologies?", "options": [{"key": "A", "text": "To serve as a backup in case the main model fails"}, {"key": "B", "text": "To test model inversion and membership inference attacks"}, {"key": "C", "text": "To benchmark model performance"}, {"key": "D", "text": "To improve data generalization"}], "answer": "B"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-11", "question": "When testing an AI model’s vulnerability to evasion attacks, which of the following is essential to include in the test cases?", "options": [{"key": "A", "text": "Testing with non-adversarial data only"}, {"key": "B", "text": "Adding adversarial perturbations to inputs"}, {"key": "C", "text": "Retraining the model with new labels"}, {"key": "D", "text": "Simplifying the model’s architecture"}], "answer": "B"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-12", "question": "Which of these methodologies is focused on evaluating the fairness and lack of bias in AI models?", "options": [{"key": "A", "text": "White-box testing"}, {"key": "B", "text": "Black-box testing"}, {"key": "C", "text": "Differential privacy testing"}, {"key": "D", "text": "Fairness, Accountability, and Transparency (FAT) testing"}], "answer": "D"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-13", "question": "In AI system testing, membership inference tests are used to check for which vulnerability?", "options": [{"key": "A", "text": "Data poisoning"}, {"key": "B", "text": "Model extraction"}, {"key": "C", "text": "Model memorization of training data"}, {"key": "D", "text": "Output misclassification"}], "answer": "C"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-14", "question": "What role does Threat Modeling play in the AI security testing process?", "options": [{"key": "A", "text": "Identifying vulnerabilities in the model’s source code"}, {"key": "B", "text": "Assessing the model's usability and interpretability"}, {"key": "C", "text": "Anticipating potential attack vectors and threats"}, {"key": "D", "text": "Automating the model deployment process"}], "answer": "C"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-15", "question": "Which toolbox or framework would be best for conducting privacy risk assessments on machine learning models?", "options": [{"key": "A", "text": "IBM AI Fairness 360 (AIF360)"}, {"key": "B", "text": "Differential Privacy Library"}, {"key": "C", "text": "Adversarial Robustness Toolbox (ART)"}, {"key": "D", "text": "TensorFlow Privacy"}], "answer": "D"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-16", "question": "A data poisoning test case in red team methodology typically aims to evaluate:", "options": [{"key": "A", "text": "How well the model generalizes on unseen data"}, {"key": "B", "text": "The model’s robustness against corrupt training data"}, {"key": "C", "text": "The model’s ability to protect sensitive data"}, {"key": "D", "text": "The model’s accuracy on real-world data"}], "answer": "B"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-17", "question": "In white-box AI testing methodologies, which test case leverages access to model gradients for generating adversarial examples?", "options": [{"key": "A", "text": "Boundary-based attack test"}, {"key": "B", "text": "Gradient-based attack test"}, {"key": "C", "text": "Black-box evasion test"}, {"key": "D", "text": "Fuzz testing"}], "answer": "B"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-18", "question": "Which of these tools is primarily focused on testing the fairness of AI models by assessing and mitigating bias in predictions?", "options": [{"key": "A", "text": "IBM AI Fairness 360 (AIF360)"}, {"key": "B", "text": "MITRE ATLAS"}, {"key": "C", "text": "PyTorch"}, {"key": "D", "text": "Scikit-learn"}], "answer": "A"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-19", "question": "In red team methodologies, which of the following describes fuzz testing?", "options": [{"key": "A", "text": "Testing AI models with adversarially crafted data"}, {"key": "B", "text": "Evaluating model responses to incorrect or random inputs"}, {"key": "C", "text": "Examining model responses under realistic operational conditions"}, {"key": "D", "text": "Measuring the model’s ability to generalize on new data"}], "answer": "B"}, {"section": "Toolboxes/Methodologies/Test Cases", "id": "TOO-20", "question": "When conducting model extraction tests as part of an AI red team exercise, what is the main objective?", "options": [{"key": "A", "text": "To create adversarial examples that evade model detection"}, {"key": "B", "text": "To reconstruct a copy of the model by querying it with inputs"}, {"key": "C", "text": "To improve the model’s interpretability"}, {"key": "D", "text": "To evaluate the model’s runtime performance"}], "answer": "B"}, {"section": "Scenario-Based Test Cases", "id": "SCE-1", "question": "You are testing a voice recognition AI model that powers a virtual assistant. You want to see if it can be manipulated by adversarial inputs. Which approach should you take to test its robustness?", "options": [{"key": "A", "text": "Apply fuzz testing with random noise"}, {"key": "B", "text": "Use membership inference attacks"}, {"key": "C", "text": "Conduct model extraction attacks"}, {"key": "D", "text": "Implement evasion attacks with modified audio samples"}], "answer": "D"}, {"section": "Scenario-Based Test Cases", "id": "SCE-2", "question": "You are conducting a red team assessment on a facial recognition model. To test its vulnerability to adversarial attacks, you alter specific pixels on input images. Which type of approach is this?", "options": [{"key": "A", "text": "Poisoning attack"}, {"key": "B", "text": "Adversarial perturbation"}, {"key": "C", "text": "Membership inference"}, {"key": "D", "text": "Differential privacy assessment"}], "answer": "B"}, {"section": "Scenario-Based Test Cases", "id": "SCE-3", "question": "A model used for online transaction fraud detection is suspected of being overly sensitive to specific patterns in input data. What approach should you use to test if small variations in inputs can evade detection?", "options": [{"key": "A", "text": "Gradient-based evasion attack"}, {"key": "B", "text": "Data poisoning"}, {"key": "C", "text": "Model inversion"}, {"key": "D", "text": "Hyperparameter tuning"}], "answer": "A"}, {"section": "Scenario-Based Test Cases", "id": "SCE-4", "question": "You need to test whether an AI model is memorizing training data rather than generalizing. Which scenario-based approach would best assess this?", "options": [{"key": "A", "text": "Fuzz testing"}, {"key": "B", "text": "Membership inference attack"}, {"key": "C", "text": "Transfer learning"}, {"key": "D", "text": "Boundary testing"}], "answer": "B"}, {"section": "Scenario-Based Test Cases", "id": "SCE-5", "question": "A client requests that you assess the privacy risks of their customer recommendation model. Which approach would best evaluate if personal data is protected?", "options": [{"key": "A", "text": "Data obfuscation"}, {"key": "B", "text": "Model distillation"}, {"key": "C", "text": "Differential privacy testing"}, {"key": "D", "text": "Label smoothing"}], "answer": "C"}, {"section": "Scenario-Based Test Cases", "id": "SCE-6", "question": "You suspect that an AI model trained on medical data might be vulnerable to model inversion attacks. What scenario should you simulate to confirm this?", "options": [{"key": "A", "text": "Infer sensitive attributes of training data from model outputs"}, {"key": "B", "text": "Apply noise to test data and observe accuracy"}, {"key": "C", "text": "Create adversarial samples to induce model failure"}, {"key": "D", "text": "Conduct membership inference to test model memory"}], "answer": "A"}, {"section": "Scenario-Based Test Cases", "id": "SCE-7", "question": "During a red team exercise, you generate queries designed to slowly approximate a model’s structure and decision boundaries. What approach does this represent?", "options": [{"key": "A", "text": "Model extraction attack"}, {"key": "B", "text": "Data poisoning"}, {"key": "C", "text": "Transfer learning"}, {"key": "D", "text": "Adversarial retraining"}], "answer": "A"}, {"section": "Scenario-Based Test Cases", "id": "SCE-8", "question": "A machine learning model controlling self-driving car navigation needs to be assessed for safety against sudden environmental changes. Which scenario-based testing approach would be most relevant?", "options": [{"key": "A", "text": "Conducting white-box evasion attacks"}, {"key": "B", "text": "Performing adversarial robustness testing with altered images"}, {"key": "C", "text": "Running model inversion attacks"}, {"key": "D", "text": "Testing differential privacy settings"}], "answer": "B"}, {"section": "Scenario-Based Test Cases", "id": "SCE-9", "question": "You want to test the resilience of a spam detection AI to sophisticated, targeted adversarial attacks. Which approach would simulate a realistic adversarial scenario?", "options": [{"key": "A", "text": "Model compression"}, {"key": "B", "text": "Poisoning attack"}, {"key": "C", "text": "Feature manipulation on spam examples"}, {"key": "D", "text": "Hyperparameter tuning"}], "answer": "C"}, {"section": "Scenario-Based Test Cases", "id": "SCE-10", "question": "You are tasked with determining if a sentiment analysis model can handle ambiguous or sarcastic language. Which approach would effectively test this scenario?", "options": [{"key": "A", "text": "Data augmentation with diverse sentiments"}, {"key": "B", "text": "Adversarial example generation"}, {"key": "C", "text": "Fuzz testing"}, {"key": "D", "text": "Transfer learning"}], "answer": "A"}, {"section": "Scenario-Based Test Cases", "id": "SCE-11", "question": "A company wants to ensure their AI-driven hiring tool does not exhibit bias toward any demographic group. Which scenario-based testing approach would you use?", "options": [{"key": "A", "text": "Fairness testing with demographic-based test cases"}, {"key": "B", "text": "Adversarial perturbation on input data"}, {"key": "C", "text": "Model extraction to simulate hiring decisions"}, {"key": "D", "text": "Model distillation to reduce bias"}], "answer": "A"}, {"section": "Scenario-Based Test Cases", "id": "SCE-12", "question": "You’re testing an AI model used in financial forecasting and want to evaluate its robustness to input data errors. Which approach would be most appropriate?", "options": [{"key": "A", "text": "Poisoning the training data"}, {"key": "B", "text": "Data obfuscation"}, {"key": "C", "text": "Fuzz testing with random data variations"}, {"key": "D", "text": "Conducting model inversion attacks"}], "answer": "C"}, {"section": "Scenario-Based Test Cases", "id": "SCE-13", "question": "You need to assess if an image classification model is robust to adversarial attacks across multiple classes. Which approach would be most suitable?", "options": [{"key": "A", "text": "Boundary testing"}, {"key": "B", "text": "Model distillation"}, {"key": "C", "text": "Multi-class adversarial testing"}, {"key": "D", "text": "Label smoothing"}], "answer": "C"}, {"section": "Scenario-Based Test Cases", "id": "SCE-14", "question": "During an assessment, you observe that an AI model trained on private medical data is highly accurate on training examples. You suspect it may memorize sensitive data. Which approach would you take?", "options": [{"key": "A", "text": "Model inversion attack"}, {"key": "B", "text": "Transfer learning"}, {"key": "C", "text": "Hyperparameter tuning"}, {"key": "D", "text": "Synthetic data generation"}], "answer": "A"}, {"section": "Scenario-Based Test Cases", "id": "SCE-15", "question": "You want to ensure that an AI-powered recommendation engine does not reinforce harmful stereotypes in its outputs. What approach should you use?", "options": [{"key": "A", "text": "Differential privacy testing"}, {"key": "B", "text": "Fuzz testing"}, {"key": "C", "text": "Fairness and bias testing"}, {"key": "D", "text": "Model compression"}], "answer": "C"}, {"section": "Scenario-Based Test Cases", "id": "SCE-16", "question": "A chatbot AI model is suspected of being vulnerable to prompt injection attacks. What test scenario would best assess this?", "options": [{"key": "A", "text": "Querying the chatbot with adversarial examples"}, {"key": "B", "text": "Inserting malicious code into prompt inputs to observe model behavior"}, {"key": "C", "text": "Running fuzz testing on input phrases"}, {"key": "D", "text": "Performing membership inference on responses"}], "answer": "B"}, {"section": "Scenario-Based Test Cases", "id": "SCE-17", "question": "You’re assessing the robustness of an AI model used for facial recognition. You want to simulate realistic variations, like lighting changes. What approach would be most relevant?", "options": [{"key": "A", "text": "Transfer learning"}, {"key": "B", "text": "Adversarial testing with modified environmental conditions"}, {"key": "C", "text": "Model distillation"}, {"key": "D", "text": "Differential privacy testing"}], "answer": "B"}, {"section": "Scenario-Based Test Cases", "id": "SCE-18", "question": "To test the robustness of an NLP model to uncommon or rarely used vocabulary, which scenario-based approach would you use?", "options": [{"key": "A", "text": "Fuzz testing with synthetic vocabulary"}, {"key": "B", "text": "Data poisoning with uncommon words"}, {"key": "C", "text": "Fairness testing for vocabulary bias"}, {"key": "D", "text": "Label smoothing"}], "answer": "A"}, {"section": "Scenario-Based Test Cases", "id": "SCE-19", "question": "You want to test if an AI model for speech-to-text can be tricked by adversarial audio inputs with subtle perturbations. Which approach should you take?", "options": [{"key": "A", "text": "Gradient-based evasion attack"}, {"key": "B", "text": "Model distillation to improve audio clarity"}, {"key": "C", "text": "Generate adversarial audio samples with slight modifications"}, {"key": "D", "text": "Fuzz testing with random audio noise"}], "answer": "C"}, {"section": "Scenario-Based Test Cases", "id": "SCE-20", "question": "An AI model for detecting cyber threats needs to be tested for resistance to crafted inputs designed to bypass detection. Which approach would best simulate this scenario?", "options": [{"key": "A", "text": "Evasion attack with adversarial network traffic data"}, {"key": "B", "text": "Model inversion to simulate threat detection"}, {"key": "C", "text": "Data obfuscation on training data"}, {"key": "D", "text": "Hyperparameter tuning to improve detection"}], "answer": "A"}, {"section": "AI Pipeline", "id": "AIP-1", "question": "In an AI pipeline, which of the following stages typically comes first?", "options": [{"key": "A", "text": "Model training"}, {"key": "B", "text": "Data preprocessing"}, {"key": "C", "text": "Model evaluation"}, {"key": "D", "text": "Model deployment"}], "answer": "B"}, {"section": "AI Pipeline", "id": "AIP-2", "question": "Which tool is commonly used to automate and orchestrate machine learning workflows in production environments?", "options": [{"key": "A", "text": "Docker"}, {"key": "B", "text": "Kubernetes"}, {"key": "C", "text": "Apache Airflow"}, {"key": "D", "text": "Jupyter Notebook"}], "answer": "C"}, {"section": "AI Pipeline", "id": "AIP-3", "question": "When building a data pipeline, which step ensures that data from multiple sources is consistently formatted before model training?", "options": [{"key": "A", "text": "Model evaluation"}, {"key": "B", "text": "Feature extraction"}, {"key": "C", "text": "Data cleaning and normalization"}, {"key": "D", "text": "Model deployment"}], "answer": "C"}, {"section": "AI Pipeline", "id": "AIP-4", "question": "What is the purpose of using a version control system, such as Git, in an AI pipeline?", "options": [{"key": "A", "text": "To improve model accuracy"}, {"key": "B", "text": "To track and manage changes to code and model artifacts"}, {"key": "C", "text": "To manage hardware resources"}, {"key": "D", "text": "To scale model inference"}], "answer": "B"}, {"section": "AI Pipeline", "id": "AIP-5", "question": "In an end-to-end machine learning pipeline, what is the purpose of feature engineering?", "options": [{"key": "A", "text": "To deploy the model to production"}, {"key": "B", "text": "To transform raw data into a format suitable for model input"}, {"key": "C", "text": "To evaluate model performance"}, {"key": "D", "text": "To monitor model drift"}], "answer": "B"}, {"section": "AI Pipeline", "id": "AIP-6", "question": "When deploying an AI model as a web service, which tool can help you containerize the model and its dependencies?", "options": [{"key": "A", "text": "Git"}, {"key": "B", "text": "Docker"}, {"key": "C", "text": "TensorFlow"}, {"key": "D", "text": "SQL"}], "answer": "B"}, {"section": "AI Pipeline", "id": "AIP-7", "question": "Which of the following is NOT a key consideration when building data pipelines for real-time AI applications?", "options": [{"key": "A", "text": "Low latency"}, {"key": "B", "text": "Batch processing"}, {"key": "C", "text": "Data consistency"}, {"key": "D", "text": "Fault tolerance"}], "answer": "B"}, {"section": "AI Pipeline", "id": "AIP-8", "question": "In a continuous integration/continuous deployment (CI/CD) pipeline for machine learning, what does the “continuous integration” component involve?", "options": [{"key": "A", "text": "Automating model training and evaluation"}, {"key": "B", "text": "Continuously monitoring model performance in production"}, {"key": "C", "text": "Testing code and integrating changes frequently"}, {"key": "D", "text": "Serving model predictions in real-time"}], "answer": "C"}, {"section": "AI Pipeline", "id": "AIP-9", "question": "Which type of pipeline focuses on retraining a model periodically to account for new data and prevent model drift?", "options": [{"key": "A", "text": "Data transformation pipeline"}, {"key": "B", "text": "Feature engineering pipeline"}, {"key": "C", "text": "Continuous learning pipeline"}, {"key": "D", "text": "Inference pipeline"}], "answer": "C"}, {"section": "AI Pipeline", "id": "AIP-10", "question": "In an AI pipeline, which process involves splitting data into training, validation, and test sets to ensure model generalization?", "options": [{"key": "A", "text": "Model tuning"}, {"key": "B", "text": "Data splitting"}, {"key": "C", "text": "Feature extraction"}, {"key": "D", "text": "Model versioning"}], "answer": "B"}, {"section": "AI Pipeline", "id": "AIP-11", "question": "What is the primary purpose of a model registry in a machine learning pipeline?", "options": [{"key": "A", "text": "To store and manage different versions of the dataset"}, {"key": "B", "text": "To maintain and track versions of models and their metadata"}, {"key": "C", "text": "To schedule training jobs"}, {"key": "D", "text": "To monitor model performance in production"}], "answer": "B"}, {"section": "AI Pipeline", "id": "AIP-12", "question": "Which of the following is a recommended practice for managing model performance over time in production?", "options": [{"key": "A", "text": "Retrain the model with the same data periodically"}, {"key": "B", "text": "Implement a model monitoring pipeline to detect drift"}, {"key": "C", "text": "Limit data collection after deployment"}, {"key": "D", "text": "Avoid updating the model to ensure stability"}], "answer": "B"}, {"section": "AI Pipeline", "id": "AIP-13", "question": "In a machine learning pipeline, which technique is used to automate the selection of the best model hyperparameters?", "options": [{"key": "A", "text": "Model evaluation"}, {"key": "B", "text": "Hyperparameter tuning"}, {"key": "C", "text": "Feature scaling"}, {"key": "D", "text": "Cross-validation"}], "answer": "B"}, {"section": "AI Pipeline", "id": "AIP-14", "question": "Which process in the AI pipeline aims to ensure that sensitive data is protected and only accessible to authorized users?", "options": [{"key": "A", "text": "Data preprocessing"}, {"key": "B", "text": "Model training"}, {"key": "C", "text": "Data governance"}, {"key": "D", "text": "Model deployment"}], "answer": "C"}, {"section": "AI Pipeline", "id": "AIP-15", "question": "To improve the efficiency of an inference pipeline, which of the following approaches can reduce the time needed to generate predictions?", "options": [{"key": "A", "text": "Data augmentation"}, {"key": "B", "text": "Model distillation"}, {"key": "C", "text": "Batch processing"}, {"key": "D", "text": "Hyperparameter tuning"}], "answer": "B"}, {"section": "AI Pipeline", "id": "AIP-16", "question": "Which of these tools is commonly used to monitor AI models in production for issues such as data drift and performance degradation?", "options": [{"key": "A", "text": "Apache Spark"}, {"key": "B", "text": "Prometheus"}, {"key": "C", "text": "Jupyter Notebook"}, {"key": "D", "text": "TensorFlow Model Analysis (TFMA)"}], "answer": "D"}, {"section": "AI Pipeline", "id": "AIP-17", "question": "In a secure machine learning pipeline, why is it important to log all data inputs and predictions made by the model?", "options": [{"key": "A", "text": "To improve model accuracy"}, {"key": "B", "text": "To ensure reproducibility and facilitate auditing"}, {"key": "C", "text": "To increase model training speed"}, {"key": "D", "text": "To automatically update the model"}], "answer": "B"}, {"section": "AI Pipeline", "id": "AIP-18", "question": "Which technique can be used to optimize resource usage and reduce costs when training large AI models in a pipeline?", "options": [{"key": "A", "text": "Using high-resolution data only"}, {"key": "B", "text": "Distributed training"}, {"key": "C", "text": "Limiting the dataset size"}, {"key": "D", "text": "Single-threaded execution"}], "answer": "B"}, {"section": "AI Pipeline", "id": "AIP-19", "question": "Which of the following describes an inference pipeline in an AI workflow?", "options": [{"key": "A", "text": "It automates feature engineering for better data processing."}, {"key": "B", "text": "It delivers trained model predictions to end-users or downstream systems."}, {"key": "C", "text": "It ensures data security in the preprocessing stage."}, {"key": "D", "text": "It performs hyperparameter optimization on a model."}], "answer": "B"}];
+
+const bySection = new Map();
+for (const q of ALL_QUESTIONS) {
+  if (!bySection.has(q.section)) bySection.set(q.section, []);
+  bySection.get(q.section).push(q);
+}
+
+const el = (id) => document.getElementById(id);
+
+const setSelect = el("setSelect");
+const modeSelect = el("modeSelect");
+const orderSelect = el("orderSelect");
+const startBtn = el("startBtn");
+const resetBtn = el("resetBtn");
+const prevBtn = el("prevBtn");
+const nextBtn = el("nextBtn");
+const qText = el("qText");
+const answers = el("answers");
+const feedback = el("feedback");
+const setPill = el("setPill");
+const qPill = el("qPill");
+const scorePill = el("scorePill");
+const bar = el("bar");
+const offlineStatus = el("offlineStatus");
+
+for (const section of bySection.keys()) {
+  const opt = document.createElement("option");
+  opt.value = section;
+  opt.textContent = section + " (" + bySection.get(section).length + ")";
+  setSelect.appendChild(opt);
+}
+
+let run = null;
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function startRun() {
+  const section = setSelect.value;
+  let qs = bySection.get(section).map(q => ({
+    ...q,
+    // per-run state
+    chosen: null,
+    correct: null
+  }));
+
+  if (orderSelect.value === "shuffle") qs = shuffle(qs);
+
+  run = {
+    section,
+    qs,
+    idx: 0,
+    score: 0,
+    answered: 0
+  };
+  render();
+}
+
+function resetRun() {
+  if (!run) return;
+  startRun();
+}
+
+function current() {
+  if (!run) return null;
+  return run.qs[run.idx];
+}
+
+function setPills() {
+  if (!run) {
+    setPill.textContent = "Set: —";
+    qPill.textContent = "Q: —";
+    scorePill.textContent = "Score: —";
+    bar.style.width = "0%";
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+    return;
+  }
+  setPill.textContent = "Set: " + run.section;
+  qPill.textContent = "Q: " + (run.idx + 1) + " / " + run.qs.length;
+  scorePill.textContent = "Score: " + run.score + " / " + run.answered;
+  bar.style.width = (((run.idx + 1) / run.qs.length) * 100).toFixed(1) + "%";
+  prevBtn.disabled = (run.idx === 0);
+  nextBtn.disabled = (run.idx === run.qs.length - 1);
+}
+
+function render() {
+  setPills();
+  const q = current();
+  if (!q) {
+    qText.textContent = "Choose a set and tap Start.";
+    answers.innerHTML = "";
+    feedback.textContent = "";
+    return;
+  }
+
+  qText.textContent = q.question;
+
+  answers.innerHTML = "";
+  feedback.textContent = "";
+
+  for (const opt of q.options) {
+    const btn = document.createElement("button");
+    btn.className = "opt";
+    btn.type = "button";
+    btn.setAttribute("data-key", opt.key);
+
+    const k = document.createElement("div");
+    k.className = "k";
+    k.textContent = opt.key;
+
+    const t = document.createElement("div");
+    t.textContent = opt.text;
+
+    btn.appendChild(k);
+    btn.appendChild(t);
+
+    btn.onclick = () => choose(opt.key);
+
+    answers.appendChild(btn);
+  }
+
+  if (q.chosen) {
+    applyReveal();
+  }
+}
+
+function choose(key) {
+  if (!run) return;
+  const q = current();
+  if (q.chosen) return; // locked after first choice
+
+  q.chosen = key;
+  q.correct = (key === q.answer);
+
+  run.answered += 1;
+  if (q.correct) run.score += 1;
+
+  applyReveal();
+  setPills();
+}
+
+function applyReveal() {
+  const q = current();
+  const mode = modeSelect.value;
+
+  const btns = Array.from(answers.querySelectorAll(".opt"));
+  for (const btn of btns) {
+    const key = btn.getAttribute("data-key");
+    btn.disabled = true;
+
+    if (key === q.answer) btn.classList.add("correct");
+    if (key === q.chosen && key !== q.answer) btn.classList.add("wrong");
+
+    if (mode === "quiz") {
+      // In quiz mode we still show the correct answer after they pick.
+      // So same styling.
+    }
+  }
+
+  if (q.correct) {
+    feedback.textContent = "✅ Correct — Answer: " + q.answer;
+  } else {
+    feedback.textContent = "❌ Incorrect — Correct answer: " + q.answer;
+  }
+}
+
+startBtn.addEventListener("click", startRun);
+resetBtn.addEventListener("click", resetRun);
+prevBtn.addEventListener("click", () => { if (run && run.idx>0) { run.idx--; render(); } });
+nextBtn.addEventListener("click", () => { if (run && run.idx<run.qs.length-1) { run.idx++; render(); } });
+
+// Register service worker for offline
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", async () => {
+    try {
+      const reg = await navigator.serviceWorker.register("./sw.js");
+      offlineStatus.textContent = "Offline-ready: yes";
+    } catch (e) {
+      offlineStatus.textContent = "Offline-ready: no (service worker failed)";
+    }
+  });
+} else {
+  offlineStatus.textContent = "Offline-ready: no (browser doesn't support)";
+}
+
+// Simple iOS install hint
+(function() {
+  const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true;
+  if (isiOS && !isStandalone) {
+    el("installHint").textContent = "Install: Share → Add to Home Screen";
+  }
+})();
+</script>
+</body>
+</html>
