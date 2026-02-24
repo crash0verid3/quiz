@@ -1,4 +1,4 @@
-const CACHE_NAME = "ai-redteam-quiz-v1";
+const CACHE_NAME = "ai-redteam-quiz-v2";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest"];
 self.addEventListener("install", (event) => {
   event.waitUntil(

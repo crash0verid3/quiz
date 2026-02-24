@@ -48,7 +48,7 @@
       display:flex; gap:10px; flex-wrap:wrap;
       margin-bottom: 12px;
     }
-    select, button {
+    select, button, input[type="number"] {
       appearance:none;
       border: 1px solid var(--border);
       background: #12141a;
@@ -173,6 +173,16 @@
           <option value="inorder">In order</option>
           <option value="shuffle">Shuffle</option>
         </select>
+      <input id="numInput" type="number" min="1" placeholder="Questions (blank = all)" aria-label="Number of questions" style="max-width:220px;">
+      <label class="toggle" style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);">
+        <input id="focusToggle" type="checkbox">
+        Focus (hide mastered ≥3 correct)
+      </label>
+      <label class="toggle" style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);">
+        <input id="explainToggle" type="checkbox" checked>
+        Show explanation/notes
+      </label>
+
         <button class="primary" id="startBtn">Start</button>
         <button id="resetBtn" title="Reset current run">Reset</button>
       </div>
@@ -218,6 +228,9 @@ const el = (id) => document.getElementById(id);
 const setSelect = el("setSelect");
 const modeSelect = el("modeSelect");
 const orderSelect = el("orderSelect");
+const numInput = el("numInput");
+const focusToggle = el("focusToggle");
+const explainToggle = el("explainToggle");
 const startBtn = el("startBtn");
 const resetBtn = el("resetBtn");
 const prevBtn = el("prevBtn");
@@ -231,6 +244,12 @@ const scorePill = el("scorePill");
 const bar = el("bar");
 const offlineStatus = el("offlineStatus");
 
+// Add a mixed/random option
+const mixedOpt = document.createElement("option");
+mixedOpt.value = "__MIXED__";
+mixedOpt.textContent = "All Questions (Random Mixed) (" + ALL_QUESTIONS.length + ")";
+setSelect.appendChild(mixedOpt);
+
 for (const section of bySection.keys()) {
   const opt = document.createElement("option");
   opt.value = section;
@@ -239,6 +258,43 @@ for (const section of bySection.keys()) {
 }
 
 let run = null;
+
+const STATS_KEY = "ai_redteam_stats_v1";
+const NOTES_KEY = "ai_redteam_notes_v1";
+
+function loadJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function saveJson(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
+let stats = loadJson(STATS_KEY, {}); // { [id]: {attempts:number, correct:number, last:number} }
+let notes = loadJson(NOTES_KEY, {}); // { [id]: string }
+
+function getStat(id) {
+  return stats[id] || { attempts: 0, correct: 0, last: 0 };
+}
+function isMastered(id) {
+  return getStat(id).correct >= 3;
+}
+function recordAttempt(id, wasCorrect) {
+  const s = getStat(id);
+  s.attempts += 1;
+  if (wasCorrect) s.correct += 1;
+  s.last = Date.now();
+  stats[id] = s;
+  saveJson(STATS_KEY, stats);
+}
+function setNote(id, text) {
+  notes[id] = text;
+  saveJson(NOTES_KEY, notes);
+}
 
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -250,17 +306,44 @@ function shuffle(arr) {
 
 function startRun() {
   const section = setSelect.value;
-  let qs = bySection.get(section).map(q => ({
+  const focus = !!focusToggle?.checked;
+
+  // Build the pool
+  let pool = [];
+  if (section === "__MIXED__") {
+    pool = ALL_QUESTIONS.slice();
+  } else {
+    pool = (bySection.get(section) || []).slice();
+  }
+
+  // Focus mode: hide questions mastered 3+ correct
+  if (focus) {
+    pool = pool.filter(q => !isMastered(q.id));
+  }
+
+  // Determine how many questions to draw
+  const requestedN = parseInt((numInput?.value || "").trim(), 10);
+  const n = (Number.isFinite(requestedN) && requestedN > 0) ? Math.min(requestedN, pool.length) : pool.length;
+
+  // Ordering / sampling
+  let picked = pool.slice();
+  // Mixed is always randomized; otherwise respect orderSelect
+  if (section === "__MIXED__" || orderSelect.value === "shuffle") {
+    picked = shuffle(picked);
+  }
+  picked = picked.slice(0, n);
+
+  let qs = picked.map(q => ({
     ...q,
     // per-run state
     chosen: null,
     correct: null
   }));
 
-  if (orderSelect.value === "shuffle") qs = shuffle(qs);
-
   run = {
     section,
+    focus,
+    requestedN: n,
     qs,
     idx: 0,
     score: 0,
@@ -289,7 +372,7 @@ function setPills() {
     nextBtn.disabled = true;
     return;
   }
-  setPill.textContent = "Set: " + run.section;
+  setPill.textContent = "Set: " + (run.section === "__MIXED__" ? "All Questions (Mixed)" : run.section) + (run.focus ? " • Focus" : "") + (run.requestedN ? " • N=" + run.requestedN : "");
   qPill.textContent = "Q: " + (run.idx + 1) + " / " + run.qs.length;
   scorePill.textContent = "Score: " + run.score + " / " + run.answered;
   bar.style.width = (((run.idx + 1) / run.qs.length) * 100).toFixed(1) + "%";
@@ -349,6 +432,9 @@ function choose(key) {
   run.answered += 1;
   if (q.correct) run.score += 1;
 
+  // Persistent tracking
+  recordAttempt(q.id, q.correct);
+
   applyReveal();
   setPills();
 }
@@ -371,11 +457,31 @@ function applyReveal() {
     }
   }
 
-  if (q.correct) {
-    feedback.textContent = "✅ Correct — Answer: " + q.answer;
-  } else {
-    feedback.textContent = "❌ Incorrect — Correct answer: " + q.answer;
+  const msg = q.correct
+  ? ("✅ Correct — Answer: " + q.answer)
+  : ("❌ Incorrect — Correct answer: " + q.answer);
+
+const s = getStat(q.id);
+const mastered = isMastered(q.id);
+
+if (explainToggle && explainToggle.checked) {
+  const saved = (notes[q.id] || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  feedback.innerHTML = `
+    <div>${msg}</div>
+    <div class="muted" style="margin-top:6px;">
+      Tracking: <b>${s.correct}</b> correct / <b>${s.attempts}</b> attempts • ${mastered ? "<b>Mastered ✅</b>" : "Not mastered yet"}
+    </div>
+    <div class="muted" style="margin-top:10px; margin-bottom:6px;">Explanation / notes (saved on this device):</div>
+    <textarea id="noteBox" rows="4" style="width:100%; resize:vertical; border-radius:12px; border:1px solid var(--border); background:#12141a; color:var(--text); padding:10px;">${saved}</textarea>
+    <div class="muted" style="margin-top:6px;">Tip: write your own “why” here. I’m not auto-generating explanations so the content stays 100% based on your test bank.</div>
+  `;
+  const box = document.getElementById("noteBox");
+  if (box) {
+    box.addEventListener("input", (e) => setNote(q.id, e.target.value));
   }
+} else {
+  feedback.textContent = msg;
+}
 }
 
 startBtn.addEventListener("click", startRun);
